@@ -11,11 +11,8 @@ import java.util.Scanner;
 
 public class MnistNeuralNetwork {
     private double learning_rate = 0.0001;
-    private final double decay_factor = 0.1;
-    private final int first_layer = 400;
-    private final int second_layer = 80;
 
-    // double beta = 0.9;
+    double beta = 0.9;
 
     private double acc;
 
@@ -27,6 +24,14 @@ public class MnistNeuralNetwork {
     private RealMatrix third_layer_weights_matrix;
     private RealVector third_layer_bias_vector;
 
+    // Momentum implementation
+    private RealMatrix third_layer_velocity;
+    private RealMatrix second_layer_velocity;
+    private RealMatrix first_layer_velocity;
+
+    private RealVector third_layer_bias_velocity;
+    private RealVector second_layer_bias_velocity;
+    private RealVector first_layer_bias_velocity;
     private static MnistNeuralNetwork instance;
     private MnistNeuralNetwork(){
         acc = readDataAcc();
@@ -40,6 +45,7 @@ public class MnistNeuralNetwork {
 
     public void improveAccuracy(){
         if(acc < 90) {
+            int first_layer = 400;
             double[][] first_layer_weights = new double[first_layer][784];
             for (int i = 0; i < first_layer; i++) {
                 for (int j = 0; j < 784; j++) {
@@ -50,6 +56,7 @@ public class MnistNeuralNetwork {
 
             first_layer_bias_vector = first_layer_bias_vector.map((it) -> Utilities.randomBias());
 
+            int second_layer = 80;
             double[][] second_layer_weights = new double[second_layer][first_layer];
             for (int i = 0; i < second_layer; i++) {
                 for (int j = 0; j < first_layer; j++) {
@@ -71,15 +78,14 @@ public class MnistNeuralNetwork {
         }else {
             readData();
         }
-        // Momentum implementation
-//        RealMatrix third_layer_velocity = MatrixUtils.createRealMatrix(third_layer_weights_matrix.getRowDimension(), third_layer_weights_matrix.getColumnDimension());
-//        RealMatrix second_layer_velocity = MatrixUtils.createRealMatrix(second_layer_weights_matrix.getRowDimension(), second_layer_weights_matrix.getColumnDimension());
-//        RealMatrix first_layer_velocity = MatrixUtils.createRealMatrix(first_layer_weights_matrix.getRowDimension(), first_layer_weights_matrix.getColumnDimension());
-//
-//        RealVector third_layer_bias_velocity = MatrixUtils.createRealVector(new double[third_layer_bias_vector.getDimension()]);
-//        RealVector second_layer_bias_velocity = MatrixUtils.createRealVector(new double[second_layer_bias_vector.getDimension()]);
-//        RealVector first_layer_bias_velocity = MatrixUtils.createRealVector(new double[first_layer_bias_vector.getDimension()]);
 
+        third_layer_velocity = MatrixUtils.createRealMatrix(third_layer_weights_matrix.getRowDimension(), third_layer_weights_matrix.getColumnDimension());
+        second_layer_velocity = MatrixUtils.createRealMatrix(second_layer_weights_matrix.getRowDimension(), second_layer_weights_matrix.getColumnDimension());
+        first_layer_velocity = MatrixUtils.createRealMatrix(first_layer_weights_matrix.getRowDimension(), first_layer_weights_matrix.getColumnDimension());
+
+        third_layer_bias_velocity = MatrixUtils.createRealVector(new double[third_layer_bias_vector.getDimension()]);
+        second_layer_bias_velocity = MatrixUtils.createRealVector(new double[second_layer_bias_vector.getDimension()]);
+        first_layer_bias_velocity = MatrixUtils.createRealVector(new double[first_layer_bias_vector.getDimension()]);
 
         double[][][] data = MnistUtils.trainData();
         double[][] inputs = data[0];
@@ -91,6 +97,7 @@ public class MnistNeuralNetwork {
                 train(inputs[i], outputs[i]);
 
 
+            double decay_factor = 0.1;
             learning_rate = learning_rate / (1 + decay_factor * epoch);
             double[][][] test = MnistUtils.testData();
             double[][] test_inputs = test[0];
@@ -237,11 +244,6 @@ public class MnistNeuralNetwork {
     }
 
 
-    public boolean compareExpectedWithOutput(int label, double[] output) {
-        RealVector output_vector = MatrixUtils.createRealVector(output);
-        return output_vector.getMaxIndex() == label;
-    }
-
     public void train(double[] data, double[] expected) {
         RealVector input_vector = MatrixUtils.createRealVector(data);
         // Calculate output
@@ -266,23 +268,19 @@ public class MnistNeuralNetwork {
 
         RealVector third_layer_delta = third_layer_output_vector.subtract(MatrixUtils.createRealVector(expected));
 
-//                third_layer_velocity = third_layer_velocity.scalarMultiply(beta)  // Retain past velocity
-//                        .subtract(
-//                                third_layer_delta.outerProduct(second_layer_output_vector).scalarMultiply(learning_rate)
-//                        );
-//
-//                third_layer_weights_matrix = third_layer_weights_matrix.add(third_layer_velocity);
+        third_layer_velocity = third_layer_velocity.scalarMultiply(beta)  // Retain past velocity
+                .subtract(
+                        third_layer_delta.outerProduct(second_layer_output_vector).scalarMultiply(learning_rate)
+                );
 
-        third_layer_weights_matrix = third_layer_weights_matrix.subtract(
-                third_layer_delta.outerProduct(second_layer_output_vector).scalarMultiply(learning_rate)
-        );
+        third_layer_weights_matrix = third_layer_weights_matrix.add(third_layer_velocity);
 
-//                third_layer_bias_velocity = third_layer_bias_velocity.mapMultiply(beta)
-//                        .subtract(third_layer_delta.mapMultiply(learning_rate));
-//
-//                third_layer_bias_vector = third_layer_bias_vector.add(third_layer_bias_velocity);
 
-        third_layer_bias_vector = third_layer_bias_vector.subtract(third_layer_delta.mapMultiply(learning_rate));
+        third_layer_bias_velocity = third_layer_bias_velocity.mapMultiply(beta)
+                .subtract(third_layer_delta.mapMultiply(learning_rate));
+
+        third_layer_bias_vector = third_layer_bias_vector.add(third_layer_bias_velocity);
+
 
         // Second Layer backpropagation
         second_layer_output_vector.walkInDefaultOrder(new SigmoidDerivative());
@@ -291,24 +289,20 @@ public class MnistNeuralNetwork {
         second_layer_delta = third_layer_weights_matrix.transpose().operate(second_layer_delta);
         second_layer_delta = second_layer_delta.ebeMultiply(second_layer_output_vector);
 
-//                second_layer_velocity = second_layer_velocity.scalarMultiply(beta)  // Retain past velocity
-//                        .subtract(
-//                                second_layer_delta.outerProduct(first_layer_output_vector).scalarMultiply(learning_rate)
-//                        );
-//
-//                second_layer_weights_matrix = second_layer_weights_matrix.add(second_layer_velocity);
+        second_layer_velocity = second_layer_velocity.scalarMultiply(beta)  // Retain past velocity
+                .subtract(
+                        second_layer_delta.outerProduct(first_layer_output_vector).scalarMultiply(learning_rate)
+                );
+
+        second_layer_weights_matrix = second_layer_weights_matrix.add(second_layer_velocity);
 
 
-        second_layer_weights_matrix = second_layer_weights_matrix.subtract(
-                second_layer_delta.outerProduct(first_layer_output_vector).scalarMultiply(learning_rate)
-        );
 
-//                second_layer_bias_velocity = second_layer_bias_velocity.mapMultiply(beta)
-//                        .subtract(second_layer_delta.mapMultiply(learning_rate));
-//
-//                second_layer_bias_vector = second_layer_bias_vector.add(second_layer_bias_velocity);
+        second_layer_bias_velocity = second_layer_bias_velocity.mapMultiply(beta)
+                .subtract(second_layer_delta.mapMultiply(learning_rate));
 
-        second_layer_bias_vector = second_layer_bias_vector .subtract(second_layer_delta.mapMultiply(learning_rate));
+        second_layer_bias_vector = second_layer_bias_vector.add(second_layer_bias_velocity);
+
         // First Layer backpropagation
         first_layer_output_vector.walkInDefaultOrder(new SigmoidDerivative());
 
@@ -317,23 +311,19 @@ public class MnistNeuralNetwork {
         first_layer_delta = second_layer_weights_matrix.transpose().operate(first_layer_delta);
         first_layer_delta = first_layer_delta.ebeMultiply(first_layer_output_vector);
 
-//                first_layer_velocity = first_layer_velocity.scalarMultiply(beta)  // Retain past velocity
-//                        .subtract(
-//                                first_layer_delta.outerProduct(input_vector).scalarMultiply(learning_rate)
-//                        );
-//
-//                first_layer_weights_matrix = first_layer_weights_matrix.add(first_layer_velocity);
+        first_layer_velocity = first_layer_velocity.scalarMultiply(beta)  // Retain past velocity
+                .subtract(
+                        first_layer_delta.outerProduct(input_vector).scalarMultiply(learning_rate)
+                );
 
-        first_layer_weights_matrix = first_layer_weights_matrix.subtract(
-                first_layer_delta.outerProduct(input_vector).scalarMultiply(learning_rate)
-        );
+        first_layer_weights_matrix = first_layer_weights_matrix.add(first_layer_velocity);
 
-//                first_layer_bias_velocity = first_layer_bias_velocity .mapMultiply(beta)
-//                        .subtract(first_layer_delta.mapMultiply(learning_rate));
-//
-//                first_layer_bias_vector = first_layer_bias_vector.add(first_layer_bias_velocity);
 
-        first_layer_bias_vector = first_layer_bias_vector.subtract(first_layer_delta.mapMultiply(learning_rate));
+        first_layer_bias_velocity = first_layer_bias_velocity .mapMultiply(beta)
+                .subtract(first_layer_delta.mapMultiply(learning_rate));
+
+        first_layer_bias_vector = first_layer_bias_vector.add(first_layer_bias_velocity);
+
     }
 }
 class Sigmoid implements RealVectorChangingVisitor{

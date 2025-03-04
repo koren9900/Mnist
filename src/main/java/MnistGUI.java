@@ -5,11 +5,11 @@ import java.awt.image.BufferedImage;
 import java.util.Random;
 
 public class MnistGUI {
-    private MnistNeuralNetwork network;
-    private JLabel imageLabel;
-    private JLabel predictionLabel;
 
-    private Random rand;
+    private final MnistNeuralNetwork network;
+    private final JLabel imageLabel;
+    private final JLabel predictionLabel;
+
     public MnistGUI() {
 
         network = MnistNeuralNetwork.getInstance();
@@ -78,7 +78,7 @@ public class MnistGUI {
         Image scaledImage = bufferedImage.getScaledInstance(395, 395, Image.SCALE_SMOOTH);
         imageLabel.setIcon(new ImageIcon(scaledImage));
 
-        double[] prediction = MnistNeuralNetwork.getInstance().calculate(testData[0][randomIndex]);
+        double[] prediction = network.calculate(testData[0][randomIndex]);
         int predictedLabel = getMaxIndex(prediction);
         predictionLabel.setText("Prediction: " + predictedLabel + " Actual: " + label);
     }

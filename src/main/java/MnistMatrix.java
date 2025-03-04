@@ -1,9 +1,9 @@
 public class MnistMatrix {
 
-    private int [][] data;
+    private final int [][] data;
 
-    private int nRows;
-    private int nCols;
+    private final int nRows;
+    private final int nCols;
 
     private int label;
 
