@@ -14,5 +14,4 @@ Input (784) → Hidden1 (400) → Hidden2 (80) → Output (10)
 A simple Swing-based GUI lets you see predictions live:
 - Displays random test images and predicts their digit when you hit "Predict".
 - Tracks and displays simple stats: correct predictions, wrong predictions, and current accuracy.
-- Clean exit via a "Close" button.
 <img width="996" height="510" alt="Screenshot" src="https://github.com/user-attachments/assets/06fe6884-f025-4292-afe7-ac73e2977565" />
